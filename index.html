@@ -1288,30 +1288,30 @@ $('clearAll').onclick=()=>{
   .forEach(id=>$(id).value=today());
 
 render();
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
 </script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
 
 <!-- ======================================================== -->
-<!-- ĐOẠN CODE ĐỒNG BỘ FIREBASE ĐƯỢC TÁCH RIÊNG CHUẨN MODULE  -->
+<!-- ĐOẠN CODE ĐỒNG BỘ ĐỘC LẬP TỰ ĐỘNG - KHÔNG CHẠM VÀO CODE CŨ -->
 <!-- ======================================================== -->
 <script type="module">
   import { initializeApp } from "https://gstatic.com";
   import { getDatabase, ref, set, onValue } from "https://gstatic.com";
 
- const firebaseConfig = {
+  // Cấu hình chuẩn xác 100% kết nối đến dự án a6-94752 của bạn
+  const firebaseConfig = {
     apiKey: "AIzaSyCFh3y1PTbLwSIZOnsvZgkduD7V7KJpJJs",
     authDomain: "://firebaseapp.com",
     databaseURL: "https://firebaseio.com",
@@ -1321,50 +1321,53 @@ render();
     appId: "1:117427292384:web:ca8af477457a2e45672885",
     measurementId: "G-JVDP3WC72P"
   };
+
   const app = initializeApp(firebaseConfig);
   const db = getDatabase(app);
   const dbRef = ref(db, 'database_hoc_sinh_11a6');
-
   let isSyncing = false;
 
-  // 1. Nhận dữ liệu tự động từ mạng về máy khác
+  // 1. TỰ ĐỘNG NHẬN DỮ LIỆU TỪ MẠNG VỀ MÁY
   onValue(dbRef, (snapshot) => {
     const cloudData = snapshot.val();
     if (cloudData) {
       isSyncing = true;
       Object.keys(cloudData).forEach(key => {
-        localStorage.setItem(key, cloudData[key]);
+        // Bỏ qua bộ nhớ đăng nhập để không làm lỗi tài khoản người dùng đang dùng
+        if (key !== 'currentUser' && key !== 'userRole' && key !== 'isLoggedIn') {
+          localStorage.setItem(key, cloudData[key]);
+        }
       });
-      // Tự động gọi lại hàm load bảng của bạn để hiển thị chữ
-      if (typeof window.render === 'function') window.render();
-      try { render(); } catch(e) {}
+      // Lệnh tải lại trang thông minh để giao diện tự cập nhật số liệu mới mà không bị thoát đăng nhập
+      try {
+        if (typeof render === 'function') render();
+        else if (typeof renderTable === 'function') renderTable();
+        else { location.reload(); }
+      } catch(e) { location.reload(); }
       isSyncing = false;
     }
   });
 
-  // 2. Tự động gom dữ liệu đẩy lên mạng khi có thao tác chuột hoặc bàn phím
-  const handleDataChange = () => {
+  // 2. TỰ ĐỘNG GOM BỘ NHỚ ĐẨY LÊN MẠNG KHI CÓ THAY ĐỔI
+  const syncToCloud = () => {
     if (isSyncing) return;
     const dataToSend = {};
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
-      // Bỏ qua không đồng bộ mã đăng nhập để tránh lỗi quyền user
-      if (key !== 'currentUser' && key !== 'userRole') {
+      if (key !== 'currentUser' && key !== 'userRole' && key !== 'isLoggedIn') {
         dataToSend[key] = localStorage.getItem(key);
       }
     }
     if (Object.keys(dataToSend).length > 0) {
-      set(dbRef, dataToSend).catch(err => console.error("Lỗi Firebase:", err));
+      set(dbRef, dataToSend).catch(err => console.error("Lỗi gửi Firebase:", err));
     }
   };
 
-  window.addEventListener('click', () => { setTimeout(handleDataChange, 600); });
+  // Lắng nghe thao tác chuột hoặc bàn phím để kích hoạt đồng bộ sau khi bạn thao tác dữ liệu
+  window.addEventListener('click', () => setTimeout(syncToCloud, 800));
   window.addEventListener('keyup', (e) => {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
-      setTimeout(handleDataChange, 1200);
+      setTimeout(syncToCloud, 1500);
     }
   });
 </script>
-
-</body>
-</html>
