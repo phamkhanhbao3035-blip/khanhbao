@@ -1286,25 +1286,72 @@ $('clearAll').onclick=()=>{
 /* Ngày mặc định */
 ['dashDate','absenceDate','violationDate','statsDate']
   .forEach(id=>$(id).value=today());
-  
+
 render();
-  
-  // Tiến hành đẩy lên đám mây Firebase Realtime
-        if (Object.keys(dataToSend).length > 0) {
-          set(dbRef, dataToSend).catch(err => console.error("Lỗi đồng bộ Firebase:", err));
-        }
-      };
 
-      // Tự động kích hoạt đồng bộ bất cứ khi nào người dùng nhấn nút Click chuột (Thêm, Xóa, Ghi lỗi...)
-      window.addEventListener('click', () => {
-        setTimeout(handleDataChange, 500); // Đợi 0.5 giây để code cũ xử lý xong dữ liệu rồi mới đồng bộ lên mạng
-      });
+</script>
 
-      // Tự động kích hoạt đồng bộ khi người dùng nhập dữ liệu bằng bàn phím
-      window.addEventListener('keyup', (e) => {
-        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
-          setTimeout(handleDataChange, 1000);
-        }
+<!-- ======================================================== -->
+<!-- ĐOẠN CODE ĐỒNG BỘ FIREBASE ĐƯỢC TÁCH RIÊNG CHUẨN MODULE  -->
+<!-- ======================================================== -->
+<script type="module">
+  import { initializeApp } from "https://gstatic.com";
+  import { getDatabase, ref, set, onValue } from "https://gstatic.com";
+
+ const firebaseConfig = {
+    apiKey: "AIzaSyCFh3y1PTbLwSIZOnsvZgkduD7V7KJpJJs",
+    authDomain: "://firebaseapp.com",
+    databaseURL: "https://firebaseio.com",
+    projectId: "a6-94752",
+    storageBucket: "://appspot.com",
+    messagingSenderId: "117427292384",
+    appId: "1:117427292384:web:ca8af477457a2e45672885",
+    measurementId: "G-JVDP3WC72P"
+  };
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+  const dbRef = ref(db, 'database_hoc_sinh_11a6');
+
+  let isSyncing = false;
+
+  // 1. Nhận dữ liệu tự động từ mạng về máy khác
+  onValue(dbRef, (snapshot) => {
+    const cloudData = snapshot.val();
+    if (cloudData) {
+      isSyncing = true;
+      Object.keys(cloudData).forEach(key => {
+        localStorage.setItem(key, cloudData[key]);
       });
-    </script>
+      // Tự động gọi lại hàm load bảng của bạn để hiển thị chữ
+      if (typeof window.render === 'function') window.render();
+      try { render(); } catch(e) {}
+      isSyncing = false;
+    }
+  });
+
+  // 2. Tự động gom dữ liệu đẩy lên mạng khi có thao tác chuột hoặc bàn phím
+  const handleDataChange = () => {
+    if (isSyncing) return;
+    const dataToSend = {};
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      // Bỏ qua không đồng bộ mã đăng nhập để tránh lỗi quyền user
+      if (key !== 'currentUser' && key !== 'userRole') {
+        dataToSend[key] = localStorage.getItem(key);
+      }
+    }
+    if (Object.keys(dataToSend).length > 0) {
+      set(dbRef, dataToSend).catch(err => console.error("Lỗi Firebase:", err));
+    }
+  };
+
+  window.addEventListener('click', () => { setTimeout(handleDataChange, 600); });
+  window.addEventListener('keyup', (e) => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+      setTimeout(handleDataChange, 1200);
+    }
+  });
+</script>
+
+</body>
 </html>
