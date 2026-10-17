@@ -1217,6 +1217,7 @@ $('importFile').onchange=async e=>{
     );
 
     localStorage.setItem('qlhs_final',JSON.stringify(db));
+    set(dbRef, db);
     render();
     alert('Đã khôi phục dữ liệu.');
   }catch(err){
@@ -1275,6 +1276,7 @@ $('clearAll').onclick=()=>{
 
     try{
       localStorage.setItem('qlhs_final',JSON.stringify(db));
+      set(dbRef, db);
       render();
       alert('Đã xóa dữ liệu. Nhật ký chỉnh sửa vẫn được giữ lại.');
     }catch(e){
