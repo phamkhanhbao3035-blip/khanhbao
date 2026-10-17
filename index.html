@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -43,7 +42,8 @@ th{background:#f8fafc}
 .code-row{display:flex;gap:6px;align-items:center}
 .code-row input{flex:1;min-width:0}
 .error{color:#dc2626;font-size:13px}
-#sessionBar{display:flex;justify-content:flex-end;align-items:center;gap:10px;padding:8px 16px;background:#e2e8f0}
+#sessionBar{display:flex;justify-content:flex-end;align-items:center;gap:10px;padding:8px 16px;background:#e2e8f0;flex-wrap:wrap}
+#syncStatus{font-size:12px;color:#334155}
 @media(max-width:600px){main{padding:9px}header h1{font-size:21px}}
 @media print{nav,button,#sessionBar{display:none!important}section{display:none!important}section.active{display:block!important}}
 </style>
@@ -69,7 +69,7 @@ th{background:#f8fafc}
     </label>
     <button type="button" id="loginBtn" style="width:100%;margin-top:16px">Đăng nhập</button>
     <p id="loginError" class="error"></p>
-    <p class="muted"></p>
+    <p class="muted">Trạng thái đồng bộ: <span id="loginSyncStatus">Đang khởi tạo...</span></p>
   </div>
 </div>
 
@@ -80,6 +80,7 @@ th{background:#f8fafc}
 
 <div id="sessionBar" hidden>
   <span id="roleLabel"></span>
+  <span id="syncStatus">Đang kết nối Firebase...</span>
   <button type="button" id="logoutBtn" class="secondary">Đăng xuất</button>
 </div>
 
@@ -118,7 +119,7 @@ th{background:#f8fafc}
       </table>
     </div>
   </div>
-  <p class="muted">Dữ liệu hiện lưu trên trình duyệt của máy tính hiện tại, chưa tự đồng bộ qua máy khác.</p>
+  <p class="muted">Dữ liệu được lưu trên trình duyệt và đồng bộ qua Firebase khi kết nối thành công.</p>
 </section>
 
 <section id="students">
@@ -250,7 +251,7 @@ th{background:#f8fafc}
 <section id="history">
   <div class="panel">
     <div class="bar"><h2>Lịch sử chỉnh sửa</h2><label>Lọc ngày<input id="filterHistoryDate" type="date"></label></div>
-    <p class="muted">Nhật ký ghi nhận thao tác thêm, sửa, xóa và khôi phục dữ liệu trên trình duyệt hiện tại.</p>
+    <p class="muted">Nhật ký ghi nhận thao tác thêm, sửa, xóa và khôi phục dữ liệu.</p>
     <div class="tablewrap">
       <table>
         <thead><tr><th>Thời gian</th><th>Người thực hiện</th><th>Thao tác</th><th>Nội dung</th></tr></thead>
@@ -280,10 +281,159 @@ th{background:#f8fafc}
 
 </main>
 
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-database-compat.js"></script>
+
 <script>
 'use strict';
 
 const $ = id => document.getElementById(id);
+
+/* =========================================================
+   FIREBASE REALTIME DATABASE
+   ========================================================= */
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDpZMgL9AcSRcAYnsc6xrrFEMCr0QzjHc",
+  authDomain: "he-thong-quan-ly-ecd42.firebaseapp.com",
+  databaseURL: "https://he-thong-quan-ly-ecd42-default-rtdb.firebaseio.com",
+  projectId: "he-thong-quan-ly-ecd42",
+  storageBucket: "he-thong-quan-ly-ecd42.firebasestorage.app",
+  messagingSenderId: "745108072688",
+  appId: "1:745108072688:web:21bdb64ae11fbccfb27a35",
+  measurementId: "G-1CQT6TVDF8"
+};
+
+let firebaseDB = null;
+let cloudReady = false;
+let applyingCloudData = false;
+let cloudInitialized = false;
+let cloudWriteQueue = Promise.resolve();
+let cloudErrorShown = false;
+
+function setSyncStatus(message) {
+  const a = $('syncStatus');
+  const b = $('loginSyncStatus');
+  if (a) a.textContent = message;
+  if (b) b.textContent = message;
+}
+
+function initFirebase() {
+  try {
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
+    }
+
+    firebaseDB = firebase.database();
+    setSyncStatus('Đang đăng nhập Firebase...');
+
+    firebase.auth().signInAnonymously()
+      .then(() => {
+        startFirebaseSync();
+      })
+      .catch(error => {
+        console.error('Firebase Authentication:', error);
+        setSyncStatus('Lỗi đăng nhập Firebase');
+      });
+  } catch (error) {
+    console.error('Không thể khởi tạo Firebase:', error);
+    setSyncStatus('Không thể khởi tạo Firebase');
+  }
+}
+
+function normalizeCloudData(value) {
+  const defaults = fresh();
+  const x = value && typeof value === 'object' ? value : {};
+
+  return {
+    ...defaults,
+    ...x,
+    settings: {
+      ...defaults.settings,
+      ...(x.settings || {})
+    },
+    students: Array.isArray(x.students) ? x.students : [],
+    absences: Array.isArray(x.absences) ? x.absences : [],
+    violations: Array.isArray(x.violations) ? x.violations : [],
+    history: Array.isArray(x.history) ? x.history : []
+  };
+}
+
+function saveLocalData() {
+  localStorage.setItem('qlhs_final', JSON.stringify(db));
+}
+
+function syncDataToFirebase() {
+  if (!firebaseDB || !cloudReady || applyingCloudData) return;
+
+  const snapshotData = JSON.parse(JSON.stringify(db));
+
+  cloudWriteQueue = cloudWriteQueue
+    .then(() => firebaseDB.ref('appData').set(snapshotData))
+    .then(() => {
+      setSyncStatus('Đã đồng bộ Firebase');
+      cloudErrorShown = false;
+    })
+    .catch(error => {
+      console.error('Lỗi ghi Firebase:', error);
+      setSyncStatus('Lỗi đồng bộ Firebase');
+
+      if (!cloudErrorShown) {
+        cloudErrorShown = true;
+        alert(
+          'Không thể ghi dữ liệu lên Firebase.\n' +
+          'Hãy kiểm tra Realtime Database Rules và kết nối mạng.'
+        );
+      }
+    });
+}
+
+function startFirebaseSync() {
+  if (!firebaseDB) return;
+
+  const dataRef = firebaseDB.ref('appData');
+  setSyncStatus('Đang tải dữ liệu từ Firebase...');
+
+  dataRef.on('value', snapshot => {
+    const remoteData = snapshot.val();
+
+    applyingCloudData = true;
+
+    try {
+      if (remoteData && typeof remoteData === 'object') {
+        // Nếu Firebase đã có dữ liệu, tải dữ liệu đó về máy hiện tại.
+        db = normalizeCloudData(remoteData);
+        saveLocalData();
+        cloudInitialized = true;
+        cloudReady = true;
+        render();
+        setSyncStatus('Đã kết nối — dữ liệu được đồng bộ');
+      } else if (!cloudInitialized) {
+        // Firebase chưa có dữ liệu: khởi tạo bằng dữ liệu đang có ở máy.
+        cloudInitialized = true;
+        cloudReady = true;
+        saveLocalData();
+        setSyncStatus('Đang tải dữ liệu ban đầu lên Firebase...');
+        syncDataToFirebase();
+      }
+    } catch (error) {
+      console.error('Lỗi xử lý dữ liệu Firebase:', error);
+      setSyncStatus('Lỗi xử lý dữ liệu Firebase');
+    } finally {
+      applyingCloudData = false;
+    }
+  }, error => {
+    console.error('Lỗi đọc Firebase:', error);
+    cloudReady = false;
+    setSyncStatus('Không có quyền đọc Firebase');
+  });
+}
+
+/* =========================================================
+   DỮ LIỆU CỦA WEBSITE
+   ========================================================= */
 
 const today = () => {
   const d = new Date();
@@ -314,15 +464,7 @@ let db;
 
 try{
   const x=JSON.parse(localStorage.getItem('qlhs_final')||'{}');
-  db={
-    ...fresh(),
-    ...x,
-    settings:{...fresh().settings,...(x.settings||{})},
-    students:Array.isArray(x.students)?x.students:[],
-    absences:Array.isArray(x.absences)?x.absences:[],
-    violations:Array.isArray(x.violations)?x.violations:[],
-    history:Array.isArray(x.history)?x.history:[]
-  };
+  db=normalizeCloudData(x);
 }catch(e){
   db=fresh();
 }
@@ -369,12 +511,13 @@ function save(action,detail){
   if(action)logHistory(action,detail||'');
 
   try{
-    localStorage.setItem('qlhs_final',JSON.stringify(db));
+    saveLocalData();
   }catch(e){
     alert('Không thể lưu dữ liệu. Bộ nhớ trình duyệt có thể đã đầy.');
     return false;
   }
 
+  syncDataToFirebase();
   render();
   return true;
 }
@@ -505,7 +648,6 @@ function render(){
   fillStudents('absenceStudent');
   fillStudents('violationStudent');
 
-  // Chỉ Admin mới nhìn thấy cột ID bản ghi.
   $('absenceIdHead').hidden=!isAdmin();
   $('violationIdHead').hidden=!isAdmin();
 
@@ -599,7 +741,6 @@ function render(){
 }
 
 function showPage(page){
-  // Chặn điều hướng đến mục không được phép.
   if(page==='history'&&currentRole==='viewer')page='home';
   if(page==='backup'&&!isAdmin())page='home';
 
@@ -642,7 +783,6 @@ function applyPermissions(){
   $('exportJson').hidden=!isAdmin();
   $('exportCsv').hidden=!isAdmin();
 
-  // Ẩn cả nút điều hướng và nội dung lịch sử đối với người xem.
   $('history').hidden=currentRole==='viewer';
 
   document.querySelectorAll('nav button').forEach(b=>{
@@ -674,7 +814,7 @@ $('loginBtn').onclick=()=>{
 
 $('loginRole').onchange=()=>{
   $('loginCode').placeholder=$('loginRole').value==='viewer'
-    ?' không cần nhập mã'
+    ?'Không cần nhập mã'
     :'Nhập mã đăng nhập';
 };
 
@@ -856,10 +996,7 @@ document.addEventListener('change',e=>{
     `${s.name}: tổ ${oldTeam} → tổ ${newTeam}`);
 });
 
-/*
-  Chọn học sinh theo HỌ TÊN, không cần nhớ số thứ tự.
-  Nếu trùng tên thì yêu cầu mã học sinh hoặc số tổ để phân biệt.
-*/
+/* Chọn học sinh theo họ tên, mã hoặc tổ để sửa đúng bản ghi. */
 function chooseStudent(currentSid){
   if(!db.students.length){
     alert('Chưa có học sinh trong danh sách.');
@@ -892,7 +1029,6 @@ function chooseStudent(currentSid){
 
   if(matches.length===1)return matches[0];
 
-  // Nếu tên không đổi thì giữ nguyên học sinh của bản ghi đang sửa.
   if(current&&String(current.name||'').trim().toLocaleLowerCase('vi')===normalized){
     return current;
   }
@@ -940,15 +1076,11 @@ function validDate(value){
     d.getDate()===Number(value.slice(8,10));
 }
 
-/*
-  Khi sửa, tìm bản ghi bằng ID rồi cập nhật đúng vị trí.
-  Không tạo bản ghi mới và không thay đổi các bản ghi khác.
-*/
+/* Sửa và xóa bản ghi theo ID. */
 document.addEventListener('click',e=>{
   const b=e.target.closest('button');
   if(!b)return;
 
-  /* SỬA THÔNG TIN HỌC SINH */
   if(b.dataset.edit&&canEdit()){
     const s=getStudent(b.dataset.edit);
     if(!s)return;
@@ -973,7 +1105,6 @@ document.addEventListener('click',e=>{
     return;
   }
 
-  /* SỬA BẢN GHI VẮNG HỌC */
   if(b.dataset.edita&&canEdit()){
     const index=db.absences.findIndex(a=>a.id===b.dataset.edita);
     if(index<0){
@@ -1036,7 +1167,6 @@ document.addEventListener('click',e=>{
     updated.count=count;
     updated.reason=reason.trim();
 
-    // Giữ nguyên ID và chỉ cập nhật đúng bản ghi đang sửa.
     db.absences[index]=updated;
 
     const ok=save(
@@ -1050,7 +1180,6 @@ document.addEventListener('click',e=>{
     return;
   }
 
-  /* SỬA LỖI VI PHẠM */
   if(b.dataset.editv&&canEdit()){
     const index=db.violations.findIndex(v=>v.id===b.dataset.editv);
     if(index<0){
@@ -1098,7 +1227,6 @@ document.addEventListener('click',e=>{
     updated.points=points;
     updated.note=note.trim();
 
-    // Không dùng push() khi sửa: thay thế đúng bản ghi theo ID.
     db.violations[index]=updated;
 
     const ok=save(
@@ -1112,7 +1240,6 @@ document.addEventListener('click',e=>{
     return;
   }
 
-  /* XÓA HỌC SINH: CHỈ ADMIN */
   if(b.dataset.delstudent&&isAdmin()){
     const s=getStudent(b.dataset.delstudent);
     if(!s)return;
@@ -1129,7 +1256,6 @@ document.addEventListener('click',e=>{
     return;
   }
 
-  /* XÓA BẢN GHI VẮNG: CHỈ ADMIN */
   if(b.dataset.dela&&isAdmin()){
     const a=db.absences.find(x=>x.id===b.dataset.dela);
     if(a&&confirm('Xóa bản ghi vắng này?')){
@@ -1140,7 +1266,6 @@ document.addEventListener('click',e=>{
     return;
   }
 
-  /* XÓA LỖI VI PHẠM: CHỈ ADMIN */
   if(b.dataset.delv&&isAdmin()){
     const v=db.violations.find(x=>x.id===b.dataset.delv);
     if(v&&confirm('Xóa lỗi vi phạm này?')){
@@ -1216,10 +1341,12 @@ $('importFile').onchange=async e=>{
       `Khôi phục từ tệp ${f.name}; nhật ký cũ trên trình duyệt có ${oldHistory.length} bản ghi`
     );
 
-    localStorage.setItem('qlhs_final',JSON.stringify(db));
+    saveLocalData();
+    syncDataToFirebase();
     render();
     alert('Đã khôi phục dữ liệu.');
   }catch(err){
+    console.error(err);
     alert('Tệp JSON không hợp lệ hoặc không thể lưu dữ liệu.');
   }
 
@@ -1274,7 +1401,8 @@ $('clearAll').onclick=()=>{
     );
 
     try{
-      localStorage.setItem('qlhs_final',JSON.stringify(db));
+      saveLocalData();
+      syncDataToFirebase();
       render();
       alert('Đã xóa dữ liệu. Nhật ký chỉnh sửa vẫn được giữ lại.');
     }catch(e){
@@ -1288,6 +1416,7 @@ $('clearAll').onclick=()=>{
   .forEach(id=>$(id).value=today());
 
 render();
+initFirebase();
 </script>
 </body>
 </html>
