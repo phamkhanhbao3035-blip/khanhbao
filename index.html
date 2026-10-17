@@ -1303,14 +1303,10 @@ render();
 
 
 
-<!-- ======================================================== -->
-<!-- ĐOẠN CODE ĐỒNG BỘ ĐỘC LẬP TỰ ĐỘNG - KHÔNG CHẠM VÀO CODE CŨ -->
-<!-- ======================================================== -->
 <script type="module">
   import { initializeApp } from "https://gstatic.com";
   import { getDatabase, ref, set, onValue } from "https://gstatic.com";
 
-  // Cấu hình chuẩn xác 100% kết nối đến dự án a6-94752 của bạn
   const firebaseConfig = {
     apiKey: "AIzaSyCFh3y1PTbLwSIZOnsvZgkduD7V7KJpJJs",
     authDomain: "://firebaseapp.com",
@@ -1327,18 +1323,15 @@ render();
   const dbRef = ref(db, 'database_hoc_sinh_11a6');
   let isSyncing = false;
 
-  // 1. TỰ ĐỘNG NHẬN DỮ LIỆU TỪ MẠNG VỀ MÁY
   onValue(dbRef, (snapshot) => {
     const cloudData = snapshot.val();
     if (cloudData) {
       isSyncing = true;
       Object.keys(cloudData).forEach(key => {
-        // Bỏ qua bộ nhớ đăng nhập để không làm lỗi tài khoản người dùng đang dùng
         if (key !== 'currentUser' && key !== 'userRole' && key !== 'isLoggedIn') {
           localStorage.setItem(key, cloudData[key]);
         }
       });
-      // Lệnh tải lại trang thông minh để giao diện tự cập nhật số liệu mới mà không bị thoát đăng nhập
       try {
         if (typeof render === 'function') render();
         else if (typeof renderTable === 'function') renderTable();
@@ -1348,7 +1341,6 @@ render();
     }
   });
 
-  // 2. TỰ ĐỘNG GOM BỘ NHỚ ĐẨY LÊN MẠNG KHI CÓ THAY ĐỔI
   const syncToCloud = () => {
     if (isSyncing) return;
     const dataToSend = {};
@@ -1363,7 +1355,6 @@ render();
     }
   };
 
-  // Lắng nghe thao tác chuột hoặc bàn phím để kích hoạt đồng bộ sau khi bạn thao tác dữ liệu
   window.addEventListener('click', () => setTimeout(syncToCloud, 800));
   window.addEventListener('keyup', (e) => {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
