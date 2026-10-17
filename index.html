@@ -1286,7 +1286,9 @@ $('clearAll').onclick=()=>{
 /* Ngày mặc định */
 ['dashDate','absenceDate','violationDate','statsDate']
   .forEach(id=>$(id).value=today());
+  
 render();
+  
   // Tiến hành đẩy lên đám mây Firebase Realtime
         if (Object.keys(dataToSend).length > 0) {
           set(dbRef, dataToSend).catch(err => console.error("Lỗi đồng bộ Firebase:", err));
