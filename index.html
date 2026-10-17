@@ -1,3 +1,27 @@
+<script type="module">
+  // Import các thư viện Firebase phiên bản 13.0.0
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-app.js";
+  import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-database.js";
+
+  // Cấu hình Firebase chuẩn khớp với vị trí Server của bạn
+  const firebaseConfig = {
+    apiKey: "AIzaSyC_XOC1Q84GL5YvQLOC4OOyTlDuJkdmLL8",
+    authDomain: "he-thong-quan-ly-11a6.firebaseapp.com",
+    databaseURL: "https://he-thong-quan-ly-11a6.firebaseio.com",
+    projectId: "he-thong-quan-ly-11a6",
+    storageBucket: "he-thong-quan-ly-11a6.firebasestorage.app",
+    messagingSenderId: "630058777095",
+    appId: "1:630058777095:web:ce7f3dbae41d672edb48a2"
+  };
+
+  // Khởi tạo các dịch vụ
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+  const dbRef = ref(db, 'database_hoc_sinh_11a6');
+  let isSyncing = false;
+</script>
+
+
 
 <!DOCTYPE html>
 <html lang="vi">
@@ -1294,28 +1318,3 @@ render();
 </body>
 </html>
 
-
-
-
-<script type="module">
-  // Import các thư viện Firebase phiên bản 13.0.0
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-app.js";
-  import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-database.js";
-
-  // Cấu hình Firebase chuẩn khớp với vị trí Server của bạn
-  const firebaseConfig = {
-    apiKey: "AIzaSyC_XOC1Q84GL5YvQLOC4OOyTlDuJkdmLL8",
-    authDomain: "he-thong-quan-ly-11a6.firebaseapp.com",
-    databaseURL: "https://he-thong-quan-ly-11a6.firebaseio.com",
-    projectId: "he-thong-quan-ly-11a6",
-    storageBucket: "he-thong-quan-ly-11a6.firebasestorage.app",
-    messagingSenderId: "630058777095",
-    appId: "1:630058777095:web:ce7f3dbae41d672edb48a2"
-  };
-
-  // Khởi tạo các dịch vụ
-  const app = initializeApp(firebaseConfig);
-  const db = getDatabase(app);
-  const dbRef = ref(db, 'database_hoc_sinh_11a6');
-  let isSyncing = false;
-</script>
