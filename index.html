@@ -1313,38 +1313,40 @@ render();
   // Initialize Firebase
   const app = initializeApp(firebaseConfig);
   const db = getDatabase(app);
-  // 1. HÀM GỬI DỮ LIỆU THÔNG MINH (CHỈ GỬI KHI MÁY CÓ DỮ LIỆU)
+  // 1. HÀM TỰ ĐỘNG GOM BIẾN MẢNG TRONG CODE ĐỂ GỬI LÊN FIREBASE
   function dongBoToanBoHeThong() {
-    // Tự động kiểm tra kho lưu trữ học sinh của bạn
-    const khoLuuLocal = typeof localStorage !== "undefined" ? JSON.stringify(localStorage) : null;
-    
-    // Nếu kho lưu trữ trống rỗng (như trên điện thoại mới mở), KHÔNG GỬI lên để tránh đè mất 42 học sinh
-    if (!khoLuuLocal || khoLuuLocal === "{}" || khoLuuLocal.length < 50) {
-      console.log("Trình duyệt trống, đợi tải dữ liệu từ Firebase về...");
-      return; 
-    }
+    // Tự động kiểm tra xem code của bạn đang dùng tên biến nào để lưu học sinh
+    // Các tên biến thông dụng nhất: data, state, students, danhSach
+    let mangHocSinhThucTe = null;
+    if (typeof data !== "undefined") mangHocSinhThucTe = data;
+    else if (typeof state !== "undefined") mangHocSinhThucTe = state;
+    else if (typeof students !== "undefined") mangHocSinhThucTe = students;
+    else if (typeof danhSach !== "undefined") mangHocSinhThucTe = danhSach;
 
     const duLieuTongHop = {
       ngay_tao: document.getElementById('dashDate')?.value || "",
       ngay_nghi: document.getElementById('absenceDate')?.value || "",
       ngay_vi_pham: document.getElementById('violationDate')?.value || "",
       ngay_thong_ke: document.getElementById('statDate')?.value || "",
-      du_lieu_kho_luu: khoLuuLocal,
+      
+      // ĐẨY MẢNG HỌC SINH THỰC TẾ LÊN
+      du_lieu_hoc_sinh: mangHocSinhThucTe,
+      
       cap_nhat_luc: new Date().toLocaleString()
     };
 
     set(ref(db, 'thong_tin_web'), duLieuTongHop)
-      .then(() => console.log("👉 Đã đồng bộ 42 học sinh lên Firebase thành công!"))
+      .then(() => console.log("👉 Đã đẩy toàn bộ mảng học sinh lên Firebase!"))
       .catch((e) => console.error("Lỗi:", e));
   }
 
-  // 2. KÍCH HOẠT GỬI ĐI KHI THAO TÁC TRÊN WEB
+  // 2. KÍCH HOẠT GỬI KHI BẤM CHUỘT HOẶC THAY ĐỔI TRÊN WEB
   document.body.addEventListener('click', () => {
     setTimeout(dongBoToanBoHeThong, 200); 
   });
   document.body.addEventListener('change', dongBoToanBoHeThong);
 
-  // 3. ĐỒNG BỘ NGƯỢC VỀ MÀN HÌNH CỦA CÁC MÁY KHÁC (ĐIỆN THOẠI NHẬN DỮ LIỆU)
+  // 3. ĐỒNG BỘ NGƯỢC VỀ MÀN HÌNH ĐIỆN THOẠI
   onValue(ref(db, 'thong_tin_web'), (snapshot) => {
     const serverData = snapshot.val();
     if (serverData) {
@@ -1353,14 +1355,14 @@ render();
       if (document.getElementById('violationDate')) document.getElementById('violationDate').value = serverData.ngay_vi_pham || '';
       if (document.getElementById('statDate')) document.getElementById('statDate').value = serverData.ngay_thong_ke || '';
       
-      // Nếu trên Firebase đã có 42 học sinh từ máy tính gửi lên, ép điện thoại phải nạp vào
-      if (serverData.du_lieu_kho_luu) {
-        const localData = JSON.parse(serverData.du_lieu_kho_luu);
-        Object.keys(localData).forEach(key => {
-          localStorage.setItem(key, localData[key]);
-        });
+      // Nạp mảng học sinh từ Firebase vào biến chạy ngầm của các máy khác
+      if (serverData.du_lieu_hoc_sinh) {
+        if (typeof data !== "undefined") data = serverData.du_lieu_hoc_sinh;
+        if (typeof state !== "undefined") state = serverData.du_lieu_hoc_sinh;
+        if (typeof students !== "undefined") students = serverData.du_lieu_hoc_sinh;
+        if (typeof danhSach !== "undefined") danhSach = serverData.du_lieu_hoc_sinh;
         
-        // Buộc màn hình vẽ lại giao diện để hiển thị con số 42 học sinh
+        // Gọi hàm có sẵn của bạn để vẽ lại giao diện số 42 học sinh lên màn hình điện thoại
         if (typeof render === "function") {
            render(); 
         }
