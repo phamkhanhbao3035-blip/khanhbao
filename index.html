@@ -1295,25 +1295,27 @@ render();
 
 
 <script type="module">
-  // Import các thư viện Firebase phiên bản 13.0.0
+  // Import the functions you need from the SDKs you need
   import { initializeApp } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-app.js";
-  import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-database.js";
+  import { getAnalytics } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-analytics.js";
+  // TODO: Add SDKs for Firebase products that you want to use
+  // https://firebase.google.com/docs/web/setup#available-libraries
 
-  // Cấu hình Firebase chuẩn khớp với vị trí Server của bạn
+  // Your web app's Firebase configuration
+  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
   const firebaseConfig = {
     apiKey: "AIzaSyC_XOC1Q84GL5YvQLOC4OOyTlDuJkdmLL8",
     authDomain: "he-thong-quan-ly-11a6.firebaseapp.com",
-    databaseURL: "https://he-thong-quan-ly-11a6.firebaseio.com",
+    databaseURL: "https://he-thong-quan-ly-11a6-default-rtdb.firebaseio.com",
     projectId: "he-thong-quan-ly-11a6",
     storageBucket: "he-thong-quan-ly-11a6.firebasestorage.app",
     messagingSenderId: "630058777095",
-    appId: "1:630058777095:web:ce7f3dbae41d672edb48a2"
+    appId: "1:630058777095:web:70e8682e7a3fda39db48a2",
+    measurementId: "G-D8HD1T2779"
   };
 
-  // Khởi tạo các dịch vụ
+  // Initialize Firebase
   const app = initializeApp(firebaseConfig);
-  const db = getDatabase(app);
-  const dbRef = ref(db, 'database_hoc_sinh_11a6');
-  let isSyncing = false;
+  const analytics = getAnalytics(app);
 </script>
 
