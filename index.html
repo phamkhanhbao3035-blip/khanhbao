@@ -1313,34 +1313,38 @@ render();
   // Initialize Firebase
   const app = initializeApp(firebaseConfig);
   const db = getDatabase(app);
-  // 1. HÀM TỰ ĐỘNG GOM VÀ GỬI TOÀN BỘ BỘ NHỚ LÊN FIREBASE (BAO GỒM CẢ HỌC SINH + SỸ SỐ)
+  // 1. HÀM GỬI DỮ LIỆU THÔNG MINH (CHỈ GỬI KHI MÁY CÓ DỮ LIỆU)
   function dongBoToanBoHeThong() {
+    // Tự động kiểm tra kho lưu trữ học sinh của bạn
+    const khoLuuLocal = typeof localStorage !== "undefined" ? JSON.stringify(localStorage) : null;
+    
+    // Nếu kho lưu trữ trống rỗng (như trên điện thoại mới mở), KHÔNG GỬI lên để tránh đè mất 42 học sinh
+    if (!khoLuuLocal || khoLuuLocal === "{}" || khoLuuLocal.length < 50) {
+      console.log("Trình duyệt trống, đợi tải dữ liệu từ Firebase về...");
+      return; 
+    }
+
     const duLieuTongHop = {
       ngay_tao: document.getElementById('dashDate')?.value || "",
       ngay_nghi: document.getElementById('absenceDate')?.value || "",
       ngay_vi_pham: document.getElementById('violationDate')?.value || "",
       ngay_thong_ke: document.getElementById('statDate')?.value || "",
+      du_lieu_kho_luu: khoLuuLocal,
       cap_nhat_luc: new Date().toLocaleString()
     };
 
-    // Bê nguyên bộ lưu trữ danh sách học sinh có sẵn của trang web gửi lên Firebase
-    if (typeof localStorage !== "undefined") {
-      duLieuTongHop.du_lieu_kho_luu = JSON.stringify(localStorage);
-    }
-
     set(ref(db, 'thong_tin_web'), duLieuTongHop)
-      .then(() => console.log("👉 Đã đồng bộ toàn bộ dữ liệu lên Firebase!"))
+      .then(() => console.log("👉 Đã đồng bộ 42 học sinh lên Firebase thành công!"))
       .catch((e) => console.error("Lỗi:", e));
   }
 
-  // 2. TỰ ĐỘNG GỬI LÊN MẠNG CỨ MỖI KHI BẠN BẤM CHUỘT HOẶC THAY ĐỔI GÌ TRÊN WEB
-  // (Bạn bấm Thêm học sinh, Sửa sỹ số, Xóa học sinh... đều tự động đồng bộ ngay lập tức)
+  // 2. KÍCH HOẠT GỬI ĐI KHI THAO TÁC TRÊN WEB
   document.body.addEventListener('click', () => {
-    setTimeout(dongBoToanBoHeThong, 150); // Chờ 0.15 giây để web chạy xong hàm thêm/xóa rồi gửi dữ liệu mới đi
+    setTimeout(dongBoToanBoHeThong, 200); 
   });
   document.body.addEventListener('change', dongBoToanBoHeThong);
 
-  // 3. ĐỒNG BỘ NGƯỢC VỀ MÀN HÌNH CỦA CÁC MÁY TÍNH KHÁC
+  // 3. ĐỒNG BỘ NGƯỢC VỀ MÀN HÌNH CỦA CÁC MÁY KHÁC (ĐIỆN THOẠI NHẬN DỮ LIỆU)
   onValue(ref(db, 'thong_tin_web'), (snapshot) => {
     const serverData = snapshot.val();
     if (serverData) {
@@ -1349,14 +1353,14 @@ render();
       if (document.getElementById('violationDate')) document.getElementById('violationDate').value = serverData.ngay_vi_pham || '';
       if (document.getElementById('statDate')) document.getElementById('statDate').value = serverData.ngay_thong_ke || '';
       
-      // Khôi phục đồng loạt danh sách học sinh + sỹ số từ máy khác sang máy này
+      // Nếu trên Firebase đã có 42 học sinh từ máy tính gửi lên, ép điện thoại phải nạp vào
       if (serverData.du_lieu_kho_luu) {
         const localData = JSON.parse(serverData.du_lieu_kho_luu);
         Object.keys(localData).forEach(key => {
           localStorage.setItem(key, localData[key]);
         });
         
-        // Gọi hàm vẽ lại giao diện của bạn để hiển thị học sinh mới ngay lập tức
+        // Buộc màn hình vẽ lại giao diện để hiển thị con số 42 học sinh
         if (typeof render === "function") {
            render(); 
         }
