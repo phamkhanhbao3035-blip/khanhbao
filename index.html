@@ -1313,44 +1313,54 @@ render();
   // Initialize Firebase
   const app = initializeApp(firebaseConfig);
   const db = getDatabase(app);
-   // 1. ĐOẠN CODE GỬI DỮ LIỆU LÊN (MÁY BẠN GÕ -> GỬI LÊN FIREBASE)
-  function dongBoDuLieu() {
-    set(ref(db, 'thong_tin_web'), {
-      ngay_tao: document.getElementById('dashDate')?.value || "Chưa nhập",
-      ngay_nghi: document.getElementById('absenceDate')?.value || "Chưa nhập",
-      ngay_vi_pham: document.getElementById('violationDate')?.value || "Chưa nhập",
-      ngay_thong_ke: document.getElementById('statDate')?.value || "Chưa nhập",
-      ten_hoc_sinh: document.getElementById('studentName')?.value || document.getElementById('name')?.value || "Chưa nhập",
-      ly_do_nghi: document.getElementById('absenceReason')?.value || document.getElementById('reason')?.value || "Chưa nhập",
+  // 1. HÀM TỰ ĐỘNG GOM VÀ GỬI TOÀN BỘ BỘ NHỚ LÊN FIREBASE (BAO GỒM CẢ HỌC SINH + SỸ SỐ)
+  function dongBoToanBoHeThong() {
+    const duLieuTongHop = {
+      ngay_tao: document.getElementById('dashDate')?.value || "",
+      ngay_nghi: document.getElementById('absenceDate')?.value || "",
+      ngay_vi_pham: document.getElementById('violationDate')?.value || "",
+      ngay_thong_ke: document.getElementById('statDate')?.value || "",
       cap_nhat_luc: new Date().toLocaleString()
-    }).then(() => {
-      console.log("👉 Đã gửi dữ liệu lên Firebase!");
-    });
+    };
+
+    // Bê nguyên bộ lưu trữ danh sách học sinh có sẵn của trang web gửi lên Firebase
+    if (typeof localStorage !== "undefined") {
+      duLieuTongHop.du_lieu_kho_luu = JSON.stringify(localStorage);
+    }
+
+    set(ref(db, 'thong_tin_web'), duLieuTongHop)
+      .then(() => console.log("👉 Đã đồng bộ toàn bộ dữ liệu lên Firebase!"))
+      .catch((e) => console.error("Lỗi:", e));
   }
 
-  // 2. CÁC LỆNH KÍCH HOẠT (KHI ĐỔI NGÀY THÁNG HOẶC BẤM NÚT THÌ TỰ ĐỘNG GỬI)
-  document.getElementById('dashDate')?.addEventListener('change', dongBoDuLieu);
-  document.getElementById('absenceDate')?.addEventListener('change', dongBoDuLieu);
-  document.getElementById('btnSave')?.addEventListener('click', dongBoDuLieu);
-  document.getElementById('btnAdd')?.addEventListener('click', dongBoDuLieu);
+  // 2. TỰ ĐỘNG GỬI LÊN MẠNG CỨ MỖI KHI BẠN BẤM CHUỘT HOẶC THAY ĐỔI GÌ TRÊN WEB
+  // (Bạn bấm Thêm học sinh, Sửa sỹ số, Xóa học sinh... đều tự động đồng bộ ngay lập tức)
+  document.body.addEventListener('click', () => {
+    setTimeout(dongBoToanBoHeThong, 150); // Chờ 0.15 giây để web chạy xong hàm thêm/xóa rồi gửi dữ liệu mới đi
+  });
+  document.body.addEventListener('change', dongBoToanBoHeThong);
 
-  // 3. ĐOẠN CODE NHẬN DỮ LIỆU VỀ (FIREBASE CẬP NHẬT -> ĐỒNG BỘ SANG TẤT CẢ CÁC MÁY KHÁC)
+  // 3. ĐỒNG BỘ NGƯỢC VỀ MÀN HÌNH CỦA CÁC MÁY TÍNH KHÁC
   onValue(ref(db, 'thong_tin_web'), (snapshot) => {
-    const data = snapshot.val();
-    if (data) {
-      if (document.getElementById('dashDate')) document.getElementById('dashDate').value = data.ngay_tao || '';
-      if (document.getElementById('absenceDate')) document.getElementById('absenceDate').value = data.ngay_nghi || '';
-      if (document.getElementById('violationDate')) document.getElementById('violationDate').value = data.ngay_vi_pham || '';
-      if (document.getElementById('statDate')) document.getElementById('statDate').value = data.ngay_thong_ke || '';
-      if (document.getElementById('studentName')) document.getElementById('studentName').value = data.ten_hoc_sinh || '';
-      if (document.getElementById('name')) document.getElementById('name').value = data.ten_hoc_sinh || '';
-      if (document.getElementById('absenceReason')) document.getElementById('absenceReason').value = data.ly_do_nghi || '';
-      if (document.getElementById('reason')) document.getElementById('reason').value = data.ly_do_nghi || '';
+    const serverData = snapshot.val();
+    if (serverData) {
+      if (document.getElementById('dashDate')) document.getElementById('dashDate').value = serverData.ngay_tao || '';
+      if (document.getElementById('absenceDate')) document.getElementById('absenceDate').value = serverData.ngay_nghi || '';
+      if (document.getElementById('violationDate')) document.getElementById('violationDate').value = serverData.ngay_vi_pham || '';
+      if (document.getElementById('statDate')) document.getElementById('statDate').value = serverData.ngay_thong_ke || '';
       
-      if (typeof render === "function") {
-         render(); 
+      // Khôi phục đồng loạt danh sách học sinh + sỹ số từ máy khác sang máy này
+      if (serverData.du_lieu_kho_luu) {
+        const localData = JSON.parse(serverData.du_lieu_kho_luu);
+        Object.keys(localData).forEach(key => {
+          localStorage.setItem(key, localData[key]);
+        });
+        
+        // Gọi hàm vẽ lại giao diện của bạn để hiển thị học sinh mới ngay lập tức
+        if (typeof render === "function") {
+           render(); 
+        }
       }
-      console.log("👉 Đã đồng bộ dữ liệu mới nhất giữa các máy tính!");
     }
   });
 </script>
