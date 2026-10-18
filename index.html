@@ -1293,7 +1293,7 @@ render();
   <script type="module">
   // Import the functions you need from the SDKs you need
   import { initializeApp } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-app.js";
-  import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-database.js";
+  import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-database.js";
   // TODO: Add SDKs for Firebase products that you want to use
   // https://firebase.google.com/docs/web/setup#available-libraries
 
@@ -1313,25 +1313,46 @@ render();
   // Initialize Firebase
   const app = initializeApp(firebaseConfig);
   const db = getDatabase(app);
-    // Tạo hàm bọc để có thể gọi bất cứ lúc nào
+   // 1. ĐOẠN CODE GỬI DỮ LIỆU LÊN (MÁY BẠN GÕ -> GỬI LÊN FIREBASE)
   function dongBoDuLieu() {
     set(ref(db, 'thong_tin_web'), {
       ngay_tao: document.getElementById('dashDate')?.value || "Chưa nhập",
       ngay_nghi: document.getElementById('absenceDate')?.value || "Chưa nhập",
       ngay_vi_pham: document.getElementById('violationDate')?.value || "Chưa nhập",
       ngay_thong_ke: document.getElementById('statDate')?.value || "Chưa nhập",
+      ten_hoc_sinh: document.getElementById('studentName')?.value || document.getElementById('name')?.value || "Chưa nhập",
+      ly_do_nghi: document.getElementById('absenceReason')?.value || document.getElementById('reason')?.value || "Chưa nhập",
       cap_nhat_luc: new Date().toLocaleString()
     }).then(() => {
-      console.log("👉 Đã đẩy dữ liệu lên Firebase thành công!");
+      console.log("👉 Đã gửi dữ liệu lên Firebase!");
     });
   }
 
-  // CÁCH 1: Chạy ngay khi vừa mở trang web
-  dongBoDuLieu();
-
-  // CÁCH 2: Kích hoạt đồng bộ mỗi khi bạn thay đổi ngày tháng trên lịch (Ví dụ ô ô dashDate)
+  // 2. CÁC LỆNH KÍCH HOẠT (KHI ĐỔI NGÀY THÁNG HOẶC BẤM NÚT THÌ TỰ ĐỘNG GỬI)
   document.getElementById('dashDate')?.addEventListener('change', dongBoDuLieu);
   document.getElementById('absenceDate')?.addEventListener('change', dongBoDuLieu);
+  document.getElementById('btnSave')?.addEventListener('click', dongBoDuLieu);
+  document.getElementById('btnAdd')?.addEventListener('click', dongBoDuLieu);
+
+  // 3. ĐOẠN CODE NHẬN DỮ LIỆU VỀ (FIREBASE CẬP NHẬT -> ĐỒNG BỘ SANG TẤT CẢ CÁC MÁY KHÁC)
+  onValue(ref(db, 'thong_tin_web'), (snapshot) => {
+    const data = snapshot.val();
+    if (data) {
+      if (document.getElementById('dashDate')) document.getElementById('dashDate').value = data.ngay_tao || '';
+      if (document.getElementById('absenceDate')) document.getElementById('absenceDate').value = data.ngay_nghi || '';
+      if (document.getElementById('violationDate')) document.getElementById('violationDate').value = data.ngay_vi_pham || '';
+      if (document.getElementById('statDate')) document.getElementById('statDate').value = data.ngay_thong_ke || '';
+      if (document.getElementById('studentName')) document.getElementById('studentName').value = data.ten_hoc_sinh || '';
+      if (document.getElementById('name')) document.getElementById('name').value = data.ten_hoc_sinh || '';
+      if (document.getElementById('absenceReason')) document.getElementById('absenceReason').value = data.ly_do_nghi || '';
+      if (document.getElementById('reason')) document.getElementById('reason').value = data.ly_do_nghi || '';
+      
+      if (typeof render === "function") {
+         render(); 
+      }
+      console.log("👉 Đã đồng bộ dữ liệu mới nhất giữa các máy tính!");
+    }
+  });
 </script>
 </html>
 
