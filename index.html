@@ -1313,6 +1313,12 @@ render();
   // Initialize Firebase
   const app = initializeApp(firebaseConfig);
   const analytics = getAnalytics(app);
+    set(ref(db, 'thong_tin_web'), {
+    ten_du_an: "Hệ thống quản lý 11A6",
+    trang_thai: "Đã kết nối và đồng bộ thành công!"
+  }).then(() => {
+    console.log("👉 Đã đẩy dữ liệu lên Firebase thành công!");
+  });
 </script>
 </html>
 
