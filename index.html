@@ -1313,12 +1313,25 @@ render();
   // Initialize Firebase
   const app = initializeApp(firebaseConfig);
   const db = getDatabase(app);
+    // Tạo hàm bọc để có thể gọi bất cứ lúc nào
+  function dongBoDuLieu() {
     set(ref(db, 'thong_tin_web'), {
-    ten_du_an: "Hệ thống quản lý 11A6",
-    trang_thai: "Đã kết nối và đồng bộ thành công!"
-  }).then(() => {
-    console.log("👉 Đã đẩy dữ liệu lên Firebase thành công!");
-  });
+      ngay_tao: document.getElementById('dashDate')?.value || "Chưa nhập",
+      ngay_nghi: document.getElementById('absenceDate')?.value || "Chưa nhập",
+      ngay_vi_pham: document.getElementById('violationDate')?.value || "Chưa nhập",
+      ngay_thong_ke: document.getElementById('statDate')?.value || "Chưa nhập",
+      cap_nhat_luc: new Date().toLocaleString()
+    }).then(() => {
+      console.log("👉 Đã đẩy dữ liệu lên Firebase thành công!");
+    });
+  }
+
+  // CÁCH 1: Chạy ngay khi vừa mở trang web
+  dongBoDuLieu();
+
+  // CÁCH 2: Kích hoạt đồng bộ mỗi khi bạn thay đổi ngày tháng trên lịch (Ví dụ ô ô dashDate)
+  document.getElementById('dashDate')?.addEventListener('change', dongBoDuLieu);
+  document.getElementById('absenceDate')?.addEventListener('change', dongBoDuLieu);
 </script>
 </html>
 
