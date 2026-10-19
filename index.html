@@ -365,20 +365,22 @@ function logHistory(action,detail){
   if(db.history.length>3000)db.history=db.history.slice(0,3000);
 }
 
-function save(action,detail){
-  if(action)logHistory(action,detail||'');
-
-  try{
-    localStorage.setItem('qlhs_final',JSON.stringify(db));
-  }catch(e){
+function save(action, detail) {
+  if (action) logHistory(action, detail || '');
+  try {
+    localStorage.setItem('qlhs_final', JSON.stringify(db));
+    
+    // Gọi trực tiếp hàm đẩy dữ liệu lên Firebase (khớp với nhánh thong_tin_web ở dưới cùng)
+    if (typeof window.dongBoToanBoHeThong === 'function') {
+      window.dongBoToanBoHeThong();
+    }
+  } catch (e) {
     alert('Không thể lưu dữ liệu. Bộ nhớ trình duyệt có thể đã đầy.');
     return false;
   }
-
   render();
   return true;
 }
-
 function teams(){
   let n=Number(db.settings.teamCount);
   if(!Number.isFinite(n)||n<1)n=4;
@@ -1290,15 +1292,10 @@ $('clearAll').onclick=()=>{
 render();
 </script>
 </body>
-  <script type="module">
-  // Import the functions you need from the SDKs you need
+ <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-app.js";
   import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-database.js";
-  // TODO: Add SDKs for Firebase products that you want to use
-  // https://firebase.google.com/docs/web/setup#available-libraries
 
-  // Your web app's Firebase configuration
-  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
   const firebaseConfig = {
     apiKey: "AIzaSyC_XOC1Q84GL5YvQLOC4OOyTlDuJkdmLL8",
     authDomain: "he-thong-quan-ly-11a6.firebaseapp.com",
@@ -1310,65 +1307,44 @@ render();
     measurementId: "G-D8HD1T2779"
   };
 
-  // Initialize Firebase
   const app = initializeApp(firebaseConfig);
-  const db = getDatabase(app);
-// 1. HÀM GỬI DỮ LIỆU CHỐNG GHI ĐÈ RỖNG
-  function dongBoToanBoHeThong() {
-    // Chỉ lấy đúng dữ liệu từ kho qlhs_final của bạn
-    const duLieuGoc = localStorage.getItem('qlhs_final');
-    
-    // Nếu máy không có dữ liệu học sinh (kho rỗng), tuyệt đối không gửi để tránh đè mất 42 học sinh
-    if (!duLieuGoc || duLieuGoc.length < 100) {
-      console.log("Bộ nhớ trống, đang đợi tải dữ liệu từ Firebase...");
-      return; 
-    }
+  const firebaseDb = getDatabase(app);
 
+  // 1. HÀM ĐỒNG BỘ LÊN FIREBASE (Được gọi trực tiếp mỗi khi có thay đổi dữ liệu)
+  window.dongBoToanBoHeThong = function() {
+    const duLieuGoc = localStorage.getItem('qlhs_final');
+    if (!duLieuGoc || duLieuGoc.length < 100) return;
+    
     const duLieuTongHop = {
-      ngay_tao: document.getElementById('dashDate')?.value || "",
-      ngay_nghi: document.getElementById('absenceDate')?.value || "",
-      ngay_vi_pham: document.getElementById('violationDate')?.value || "",
-      ngay_thong_ke: document.getElementById('statDate')?.value || "",
-      // Gửi duy nhất kho chứa 42 học sinh lên Firebase
       kho_hoc_sinh: duLieuGoc,
       cap_nhat_luc: new Date().toLocaleString()
     };
 
-    set(ref(db, 'thong_tin_web'), duLieuTongHop)
-      .then(() => console.log("👉 Đã đồng bộ 42 học sinh lên Firebase thành công!"))
+    set(ref(firebaseDb, 'thong_tin_web'), duLieuTongHop)
+      .then(() => console.log("👉 Đã đồng bộ dữ liệu lên Firebase thành công!"))
       .catch((e) => console.error("Lỗi:", e));
-  }
+  };
 
-  // 2. KÍCH HOẠT GỬI KHI BẤM CHUỘT TRÊN WEB
-  document.body.addEventListener('click', () => {
-    setTimeout(dongBoToanBoHeThong, 250); 
-  });
-  document.body.addEventListener('change', dongBoToanBoHeThong);
-
- // 3. ĐỒNG BỘ NGƯỢC VỀ MÀN HÌNH CỦA CÁC MÁY TÍNH VÀ ĐIỆN THOẠI KHÁC
-  onValue(ref(db, 'thong_tin_web'), (snapshot) => {
+  // 2. LẮNG NGHE REALTIME TỪ FIREBASE (Tự động cập nhật màn hình các máy khác không cần F5)
+  onValue(ref(firebaseDb, 'thong_tin_web'), (snapshot) => {
     const serverData = snapshot.val();
-    if (serverData) {
-      if (document.getElementById('dashDate')) document.getElementById('dashDate').value = serverData.ngay_tao || '';
-      if (document.getElementById('absenceDate')) document.getElementById('absenceDate').value = serverData.ngay_nghi || '';
-      if (document.getElementById('violationDate')) document.getElementById('violationDate').value = serverData.ngay_vi_pham || '';
-      if (document.getElementById('statDate')) document.getElementById('statDate').value = serverData.ngay_thong_ke || '';
-      
-      // Ép điện thoại và các máy khác nạp kho dữ liệu học sinh từ Firebase về
-      if (serverData.kho_hoc_sinh) {
+    if (serverData && serverData.kho_hoc_sinh) {
+      // Kiểm tra nếu dữ liệu trên server khác với dữ liệu hiện tại thì mới cập nhật tránh bị lặp vô tận
+      const hienTai = localStorage.getItem('qlhs_final');
+      if (hienTai !== serverData.kho_hoc_sinh) {
         localStorage.setItem('qlhs_final', serverData.kho_hoc_sinh);
         
-        // MẸO CƯỠNG CHẾ KHỞI ĐỘNG LẠI HỆ THỐNG ĐỂ HIỂN THỊ CON SỐ 42
-        // Thao tác này tự động lừa trình duyệt là bạn vừa đăng nhập Admin để nó nạp toàn bộ học sinh ra màn hình
+        // Nạp lại dữ liệu vào biến db chính của trang
         try {
-          if (typeof render === "function") {
-            render(); 
+          const parsed = JSON.parse(serverData.kho_hoc_sinh);
+          if (typeof db !== 'undefined') {
+            Object.assign(db, parsed);
           }
-          // Nếu trang web của bạn dùng hàm loadData hoặc init để nạp dữ liệu từ localStorage, lệnh này sẽ ép nó chạy
-          if (typeof loadData === "function") loadData();
-          if (typeof init === "function") init();
-        } catch(e) {
-          console.log("Đang nạp đồng bộ...");
+        } catch(err) {}
+
+        // Gọi hàm render lại giao diện ngay lập tức
+        if (typeof render === "function") {
+          render();
         }
       }
     }
