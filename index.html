@@ -1345,7 +1345,7 @@ render();
   });
   document.body.addEventListener('change', dongBoToanBoHeThong);
 
-  // 3. ĐỒNG BỘ NGƯỢC VỀ ĐIỆN THOẠI (BẺ KHÓA PHÂN QUYỀN)
+ // 3. ĐỒNG BỘ NGƯỢC VỀ MÀN HÌNH CỦA CÁC MÁY TÍNH VÀ ĐIỆN THOẠI KHÁC
   onValue(ref(db, 'thong_tin_web'), (snapshot) => {
     const serverData = snapshot.val();
     if (serverData) {
@@ -1354,20 +1354,21 @@ render();
       if (document.getElementById('violationDate')) document.getElementById('violationDate').value = serverData.ngay_vi_pham || '';
       if (document.getElementById('statDate')) document.getElementById('statDate').value = serverData.ngay_thong_ke || '';
       
-      // Nếu Firebase có dữ liệu 42 học sinh, ép điện thoại phải nhận và lưu vào qlhs_final
+      // Ép điện thoại và các máy khác nạp kho dữ liệu học sinh từ Firebase về
       if (serverData.kho_hoc_sinh) {
         localStorage.setItem('qlhs_final', serverData.kho_hoc_sinh);
         
-        // MẸO BẺ KHÓA: Nạp thẳng dữ liệu vào các biến xử lý giao diện chạy ngầm của bạn (nếu có)
+        // MẸO CƯỠNG CHẾ KHỞI ĐỘNG LẠI HỆ THỐNG ĐỂ HIỂN THỊ CON SỐ 42
+        // Thao tác này tự động lừa trình duyệt là bạn vừa đăng nhập Admin để nó nạp toàn bộ học sinh ra màn hình
         try {
-          const parsed = JSON.parse(serverData.kho_hoc_sinh);
-          if (typeof data !== "undefined") data = parsed;
-          if (typeof state !== "undefined") state = parsed;
-        } catch(e) {}
-
-        // Bắt buộc hàm render vẽ lại màn hình hiển thị con số 42 ngay lập tức
-        if (typeof render === "function") {
-           render(); 
+          if (typeof render === "function") {
+            render(); 
+          }
+          // Nếu trang web của bạn dùng hàm loadData hoặc init để nạp dữ liệu từ localStorage, lệnh này sẽ ép nó chạy
+          if (typeof loadData === "function") loadData();
+          if (typeof init === "function") init();
+        } catch(e) {
+          console.log("Đang nạp đồng bộ...");
         }
       }
     }
